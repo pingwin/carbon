@@ -71,8 +71,19 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
 
   def lineReceived(self, line):
     try:
-      metric, value, timestamp = line.strip().split()
-      datapoint = ( float(timestamp), float(value) )
+      points = line.strip().split()
+      l_points = len(points)
+      assert l_points == 3 or l_points == 4
+
+      if l_points == 4:
+        assert points[0] == 'incr' or points[0] == 'decr'
+        action = 1 if points[0] == 'incr' else -1
+        metric, value, timestamp = points[1:]
+        datapoint = (float(timestamp), float(value),  action)
+      else:
+        metric, value, timestamp = points
+        datapoint = ( float(timestamp), float(value), 0)
+
     except:
       log.listener('invalid line received from client %s, ignoring' % self.peerName)
       return
@@ -84,8 +95,18 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
   def datagramReceived(self, data, (host, port)):
     for line in data.splitlines():
       try:
-        metric, value, timestamp = line.strip().split()
-        datapoint = ( float(timestamp), float(value) )
+        points = line.strip().split()
+        l_points = len(points)
+        assert l_points == 3 or l_points == 4
+
+        if l_points == 4:
+          assert points[0] == 'incr' or points[0] == 'decr'
+          action = 1 if points[0] == 'incr' else -1
+          metric, value, timestamp = points[1:]
+          datapoint = (float(timestamp), float(value),  action)
+        else:
+          metric, value, timestamp = points
+          datapoint = ( float(timestamp), float(value), 0)
 
         self.metricReceived(metric, datapoint)
       except:
@@ -107,8 +128,12 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
       return
 
     for (metric, datapoint) in datapoints:
+
       try:
-        datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
+        if len(datapoint) == 2:
+          datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
+        else:
+          datapoint = ( float(datapoint[0]), float(datapoint[1]), float(datapoint[2]) )
       except:
         continue
 
